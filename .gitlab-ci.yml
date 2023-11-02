@@ -1,0 +1,203 @@
+variables:
+  MAVEN_CLI_OPTS: "-s .m2/settings.xml --batch-mode"
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  MAVEN_PROFILE: "development"
+
+cache:
+  key: prodtest1NodeModules
+  paths: 
+    - Frontend/node_modules/*
+
+stages:
+  - build
+  - leaks
+  - test
+  - deploy
+
+gitleaks:
+  stage: leaks
+  image: 
+    name: "zricethezav/gitleaks"
+    entrypoint: [""]
+  script:
+    - gitleaks detect --no-git --report-format "csv" --report-path ./detect_logs.csv --redact --exit-code 0
+  allow_failure: true
+  artifacts:
+      paths: 
+        - ./detect_logs.csv
+  when: manual        
+  only:
+    - development
+    - release
+    - master
+
+.build-artifacts:
+  image: node:16.14.2-alpine3.14
+  stage: build
+  before_script:
+    - apk add --no-cache git maven bash curl wget
+    - apk --no-cache add openjdk8 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+    - apk add python2 make cmake
+    - npm install -g @angular/cli@13.2.4
+    - npm config set legacy-peer-deps true
+  script:
+    - echo 'Build for environment...' 
+    - mvn $MAVEN_CLI_OPTS clean install -P $MAVEN_PROFILE
+  cache:
+    key: prodtest1NodeModules
+    paths:
+      - Frontend/node_modules/*
+  artifacts:
+    paths:
+      - BackendApp/target/*
+    expire_in: 60 mins
+
+build-prod-artifacts:
+  extends: .build-artifacts
+  environment: prod
+  when: manual      
+  only:
+    - master
+build-dev-artifacts:
+  extends: .build-artifacts
+  environment: dev
+  when: manual      
+  only:
+    - development
+build-test-artifacts:
+  extends: .build-artifacts
+  environment: test
+  when: manual      
+  only:
+    - release
+build-pre-prod-artifacts:
+  extends: .build-artifacts
+  environment: pre-prod
+  when: manual      
+  only:
+    - preproduction
+
+
+deploy to prod:
+  environment: prod
+  stage: deploy
+  variables:
+  
+    MAVEN_PROFILE: "prod"
+    PROJECT_ID: "vb-eva-gen"
+   
+  image: google/cloud-sdk:alpine
+  needs:
+    - job: build-prod-artifacts
+      artifacts: true
+  before_script:
+      # install maven
+      - apk add --no-cache git maven bash curl wget
+      - apk --no-cache add openjdk8 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+  script:
+    - echo "Configuring google-cloud-sdk..."
+    - export CLOUDSDK_CORE_DISABLE_PROMPTS=1
+    - export PATH=${PATH}:${HOME}/google-cloud-sdk/bin
+    - echo ${SERVICE_ACCOUNT_KEYFILE_JSON} > client-secret.json
+    - gcloud auth activate-service-account --key-file client-secret.json
+    - gcloud config set project $PROJECT_ID
+    - cd BackendApp
+    - mvn $MAVEN_CLI_OPTS appengine:deployAll -P $MAVEN_PROFILE
+  when: manual
+  allow_failure: true
+  only:
+    - master
+
+
+deploy to dev:
+  environment: dev
+  stage: deploy
+  variables:
+  
+    MAVEN_PROFILE: "dev"
+    PROJECT_ID: "vb-eva-gen"
+   
+  image: google/cloud-sdk:alpine
+  needs:
+    - job: build-dev-artifacts
+      artifacts: true
+  before_script:
+      # install maven
+      - apk add --no-cache git maven bash curl wget
+      - apk --no-cache add openjdk8 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+  script:
+    - echo "Configuring google-cloud-sdk..."
+    - export CLOUDSDK_CORE_DISABLE_PROMPTS=1
+    - export PATH=${PATH}:${HOME}/google-cloud-sdk/bin
+    - echo ${SERVICE_ACCOUNT_KEYFILE_JSON} > client-secret.json
+    - gcloud auth activate-service-account --key-file client-secret.json
+    - gcloud config set project $PROJECT_ID
+    - cd BackendApp
+    - mvn $MAVEN_CLI_OPTS appengine:deployAll -P $MAVEN_PROFILE
+  when: manual
+  allow_failure: true
+  only:
+    - development
+
+
+deploy to test:
+  environment: test
+  stage: deploy
+  variables:
+  
+    MAVEN_PROFILE: "test"
+    PROJECT_ID: "vb-eva-gen"
+   
+  image: google/cloud-sdk:alpine
+  needs:
+    - job: build-test-artifacts
+      artifacts: true
+  before_script:
+      # install maven
+      - apk add --no-cache git maven bash curl wget
+      - apk --no-cache add openjdk8 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+  script:
+    - echo "Configuring google-cloud-sdk..."
+    - export CLOUDSDK_CORE_DISABLE_PROMPTS=1
+    - export PATH=${PATH}:${HOME}/google-cloud-sdk/bin
+    - echo ${SERVICE_ACCOUNT_KEYFILE_JSON} > client-secret.json
+    - gcloud auth activate-service-account --key-file client-secret.json
+    - gcloud config set project $PROJECT_ID
+    - cd BackendApp
+    - mvn $MAVEN_CLI_OPTS appengine:deployAll -P $MAVEN_PROFILE
+  when: manual
+  allow_failure: true
+  only:
+    - release
+
+
+deploy to pre-prod:
+  environment: pre-prod
+  stage: deploy
+  variables:
+  
+    MAVEN_PROFILE: "pre-prod"
+    PROJECT_ID: "vb-eva-gen"
+   
+  image: google/cloud-sdk:alpine
+  needs:
+    - job: build-pre-prod-artifacts
+      artifacts: true
+  before_script:
+      # install maven
+      - apk add --no-cache git maven bash curl wget
+      - apk --no-cache add openjdk8 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+  script:
+    - echo "Configuring google-cloud-sdk..."
+    - export CLOUDSDK_CORE_DISABLE_PROMPTS=1
+    - export PATH=${PATH}:${HOME}/google-cloud-sdk/bin
+    - echo ${SERVICE_ACCOUNT_KEYFILE_JSON} > client-secret.json
+    - gcloud auth activate-service-account --key-file client-secret.json
+    - gcloud config set project $PROJECT_ID
+    - cd BackendApp
+    - mvn $MAVEN_CLI_OPTS appengine:deployAll -P $MAVEN_PROFILE
+  when: manual
+  allow_failure: true
+  only:
+    - preproduction
+
