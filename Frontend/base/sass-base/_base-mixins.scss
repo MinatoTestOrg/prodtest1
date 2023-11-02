@@ -1,5 +1,4 @@
-@import "../../base/sass-base/base-variables";
-
+@import "base/sass-base/base-variables";
 @mixin box-layout {
     background-color: $primary-form-bg-color;
     border: 1px solid #ccc;
@@ -54,12 +53,13 @@
 
 
 @mixin form-control-value {
+    
     font-size: $form-control-font-size;
-    font-weight: 400;
+    font-weight: 600;
     line-height: 2rem;
-    color: $detail-form-text-color;
+    color: $detail-form-control-text-color;
     border-radius: $form-control-border-radius;
-
+  
 
 }
 @mixin form-control-name {

@@ -1,30 +1,33 @@
-import { RouterModule, Routes } from '@angular/router';
+import {Routes } from '@angular/router';
 import { AppLayoutComponent } from '@app/app-layout/app-layout.component';
+import { AppHomePageComponent } from '@app/app-home-page/app-home-page.component';
+import { AuthenticationResolver } from '@app/auth/authentication.resolver';
+import { LoginDetailComponent } from '@app/auth/login/login.component';
 
-export const routes: Routes = [{
-  path: 'auth',
-  children: [
+export const routes: Routes = [ 
+  {
+     path: '',
+     redirectTo: "/home",
+     pathMatch: 'full'
+  }, 
+
     {
-      path: '',
-      loadChildren: () => import('@app/auth/auth.module').then(m => m.AuthModule)
+    path: '',
+    component: AppLayoutComponent,
+    resolve:{authResolver:AuthenticationResolver},
+    children: [
+    {
+    path: 'home',
+    component: AppHomePageComponent,
     },
-    {
-      path:'exports',
-      loadChildren:() => import ('@app/exports/exports.module').then(m =>m.ExportsModule)
-    },
-    {
-      path:'imports',
-      loadChildren:() => import('@app/imports/imports.module').then(m=>m.ImportsModule)
-    },
-    {
-        path: 'usermanagement',
-        loadChildren: () => import('@app/user-settings/user-settings.module').then(m=>m.UserSettingsModule)
+      {
+        path: 'applicationuser',
+        loadChildren: () => import('@app/application-user/application-user.module').then(m => m.ApplicationUserModule)
+      },
+      {
+        path: 'table1',
+        loadChildren: () => import('@app/table1/table1.module').then(m => m.Table1Module)
       }
-  ]
-},
-{
-  path: '',
-  component: AppLayoutComponent,  
-  children: []
-}];
-
+   	]
+  }
+];
